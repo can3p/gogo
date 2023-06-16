@@ -6,7 +6,7 @@ be as trivial as it can be. The simplest thing is to avoid touching
 the javascript in the first place, right?
 
 With this approach you get custom validation, full control over templates
-and an SPA-like behavior without relate headaches at the same time.
+and an SPA-like behavior without related headaches at the same time.
 
 ## 1. Define a Form
 
