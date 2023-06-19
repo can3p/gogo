@@ -55,7 +55,7 @@ type Form interface {
 	TemplateData() map[string]interface{}
 
 	// the only thing to implement in the child form
-	Validate(c *gin.Context) error
+	Validate(c *gin.Context, exec boil.ContextExecutor) error
 }
 
 type FormBase[T any] struct {
@@ -144,7 +144,7 @@ func DefaultHandler(c *gin.Context, db *sqlx.DB, form Form) {
 		return
 	}
 
-	if err := form.Validate(c); err != nil {
+	if err := form.Validate(c, db); err != nil {
 		form.RenderForm(c)
 		return
 	}

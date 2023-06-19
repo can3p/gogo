@@ -45,7 +45,7 @@ func SettingsGeneralFormNew(u *core.User) Form {
 	return form
 }
 
-func (f *SettingsGeneralForm) Validate(c *gin.Context) error {
+func (f *SettingsGeneralForm) Validate(c *gin.Context, boil.ContextExecutor) error {
 	if f.Input.Timezone == "" {
 		f.AddError("timezone", "timezone is required")
 		return ErrValidationFailed
