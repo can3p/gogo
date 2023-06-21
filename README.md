@@ -1,5 +1,7 @@
 # Save forms like your father did
 
+**WARN**: Work in progress, incompatible changes or force push can happen any time
+
 Forms expect `htmx` to be set up for the application. The principle there
 is that we want to keep things simple, adding a form to a website should
 be as trivial as it can be. The simplest thing is to avoid touching
