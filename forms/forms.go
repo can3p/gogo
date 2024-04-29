@@ -32,7 +32,6 @@ func FormSaveFullReload(c *gin.Context, f Form) {
 
 	c.Header("HX-Refresh", "true")
 	c.Status(http.StatusOK)
-	return
 }
 
 func FormSaveRedirect(url string) FormSaveAction {
@@ -41,7 +40,6 @@ func FormSaveRedirect(url string) FormSaveAction {
 
 		c.Header("HX-Redirect", url)
 		c.Status(http.StatusOK)
-		return
 	}
 }
 
@@ -58,6 +56,18 @@ type Form interface {
 	Validate(c *gin.Context, exec boil.ContextExecutor) error
 }
 
+type FormErrors map[string]string
+
+func (fe FormErrors) HasError(fieldName string) bool {
+	if fe == nil {
+		return false
+	}
+
+	_, ok := fe[fieldName]
+
+	return ok
+}
+
 type FormBase[T any] struct {
 	Name                 string
 	FormTemplate         string
@@ -69,7 +79,7 @@ type FormBase[T any] struct {
 	// errors and struct, we just assume it to be matching.
 	// Same goes for the templates - it's completely left
 	// to the developer
-	Errors            map[string]string
+	Errors            FormErrors
 	Input             *T
 	ExtraTemplateData map[string]interface{}
 }
@@ -109,7 +119,7 @@ func (f *FormBase[T]) TemplateData() map[string]interface{} {
 
 func (f *FormBase[T]) AddError(fieldName string, message string) {
 	if f.Errors == nil {
-		f.Errors = map[string]string{}
+		f.Errors = FormErrors{}
 	}
 
 	f.Errors[fieldName] = message
