@@ -138,14 +138,14 @@ func (f *FormBase[T]) RenderForm(c *gin.Context) {
 	c.HTML(http.StatusOK, f.FormTemplate, f.TemplateData())
 }
 
-func (f *FormBase[T]) Save(c context.Context, exec boil.ContextExecutor) error {
+func (f *FormBase[T]) Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error) {
 	f.FormSaved = true
-	if !f.KeepValuesAfterSave {
-		// reset input values to get a pristine form
-		f.Input = new(T)
+
+	if f.FullPageReloadOnSave {
+		return FormSaveFullReload, nil
 	}
 
-	return nil
+	return FormSaveDefault(f.KeepValuesAfterSave), nil
 }
 
 func DefaultHandler(c *gin.Context, db *sqlx.DB, form Form) {
