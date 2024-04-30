@@ -68,6 +68,14 @@ func (fe FormErrors) HasError(fieldName string) bool {
 	return ok
 }
 
+func (fe FormErrors) PassedValidation() error {
+	if len(fe) == 0 {
+		return nil
+	}
+
+	return ErrValidationFailed
+}
+
 type FormBase[T any] struct {
 	Name                 string
 	FormTemplate         string
