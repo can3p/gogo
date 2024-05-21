@@ -3,7 +3,7 @@ package forms
 import (
 	"context"
 	"database/sql"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/can3p/gogo/util/transact"
@@ -191,7 +191,9 @@ func DefaultHandler(c *gin.Context, db *sqlx.DB, form Form) {
 
 		return err
 	}); err != nil {
-		log.Panicf("Failed to save the form: %v", err)
+		slog.Error("Failed to save form", "name", form.FormName(), "err", err.Error())
+		c.Status(http.StatusInternalServerError)
+		return
 	}
 
 	if action == nil {
