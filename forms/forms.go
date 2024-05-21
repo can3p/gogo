@@ -51,6 +51,7 @@ type Form interface {
 	SetFormError(message string)
 	AddError(fieldName string, message string)
 	Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error)
+	AddTemplateData(field string, value any)
 	TemplateData() map[string]interface{}
 
 	// the only thing to implement in the child form
@@ -111,6 +112,10 @@ func (f *FormBase[T]) ShouldBind(c *gin.Context) error {
 	}
 
 	return nil
+}
+
+func (f *FormBase[T]) AddTemplateData(field string, value any) {
+	f.ExtraTemplateData[field] = value
 }
 
 func (f *FormBase[T]) TemplateData() map[string]interface{} {
