@@ -48,6 +48,7 @@ type Form interface {
 	ClearInput()
 	ShouldBind(c *gin.Context) error
 	RenderForm(c *gin.Context)
+	SetFormError(message string)
 	AddError(fieldName string, message string)
 	Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error)
 	TemplateData() map[string]interface{}
@@ -88,6 +89,7 @@ type FormBase[T any] struct {
 	// Same goes for the templates - it's completely left
 	// to the developer
 	Errors            FormErrors
+	FormError         string
 	Input             *T
 	ExtraTemplateData map[string]interface{}
 }
@@ -115,6 +117,7 @@ func (f *FormBase[T]) TemplateData() map[string]interface{} {
 	data := map[string]interface{}{
 		"Input":     f.Input,
 		"Errors":    f.Errors,
+		"FormError": f.FormError,
 		"FormSaved": f.FormSaved,
 	}
 
@@ -131,6 +134,10 @@ func (f *FormBase[T]) AddError(fieldName string, message string) {
 	}
 
 	f.Errors[fieldName] = message
+}
+
+func (f *FormBase[T]) SetFormError(message string) {
+	f.FormError = message
 }
 
 func (f *FormBase[T]) RenderForm(c *gin.Context) {
@@ -163,6 +170,10 @@ func DefaultHandler(c *gin.Context, db *sqlx.DB, form Form) {
 	}
 
 	if err := form.Validate(c, db); err != nil {
+		if err != ErrValidationFailed {
+			form.SetFormError(err.Error())
+		}
+
 		form.RenderForm(c)
 		return
 	}
