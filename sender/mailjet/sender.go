@@ -7,6 +7,7 @@ import (
 
 	"github.com/can3p/gogo/sender"
 	mailjet "github.com/mailjet/mailjet-apiv3-go/v3"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type mailjerSender struct {
@@ -41,7 +42,7 @@ func toMailjet(addrs []mail.Address) *mailjet.RecipientsV31 {
 
 }
 
-func (m *mailjerSender) Send(ctx context.Context, mail *sender.Mail) error {
+func (m *mailjerSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *sender.Mail) error {
 	messagesInfo := []mailjet.InfoMessagesV31{
 		{
 			From: &mailjet.RecipientV31{

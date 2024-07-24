@@ -3,10 +3,12 @@ package sender
 import (
 	"context"
 	"net/mail"
+
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type Sender interface {
-	Send(ctx context.Context, mail *Mail) error
+	Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *Mail) error
 }
 
 type Mail struct {

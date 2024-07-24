@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/can3p/gogo/sender"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type consoleSender struct{}
@@ -58,7 +59,7 @@ func (m *consoleSender) MailToString(mail *sender.Mail) string {
 	return buf.String()
 }
 
-func (m *consoleSender) Send(ctx context.Context, mail *sender.Mail) error {
+func (m *consoleSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *sender.Mail) error {
 	fmt.Println("DEBUG Dump of email, nothing was sent!")
 	fmt.Println(m.MailToString(mail))
 
