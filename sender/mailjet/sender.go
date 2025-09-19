@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/can3p/gogo/sender"
+	"github.com/can3p/gogo/sender/mailjet/config"
 	mailjet "github.com/mailjet/mailjet-apiv3-go/v3"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
@@ -17,7 +18,14 @@ type mailjerSender struct {
 var RequiredEnv = []string{"MJ_APIKEY_PUBLIC", "MJ_APIKEY_PRIVATE"}
 
 func NewSender() *mailjerSender {
-	mailjetClient := mailjet.NewMailjetClient(os.Getenv("MJ_APIKEY_PUBLIC"), os.Getenv("MJ_APIKEY_PRIVATE"))
+	return NewSenderFromConfig(&config.Config{
+		ApiKeyPublic:  os.Getenv("MJ_APIKEY_PUBLIC"),
+		ApiKeyPrivate: os.Getenv("MJ_APIKEY_PRIVATE"),
+	})
+}
+
+func NewSenderFromConfig(config *config.Config) *mailjerSender {
+	mailjetClient := mailjet.NewMailjetClient(config.ApiKeyPublic, config.ApiKeyPrivate)
 
 	return &mailjerSender{
 		client: mailjetClient,
