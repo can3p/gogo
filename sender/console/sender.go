@@ -30,28 +30,28 @@ func serializeAddr(addr []mail.Address) string {
 func (m *consoleSender) MailToString(mail *sender.Mail) string {
 	var buf bytes.Buffer
 
-	buf.WriteString(fmt.Sprintf("From: %s\n", mail.From.String()))
+	fmt.Fprintf(&buf, "From: %s\n", mail.From.String())
 
 	if len(mail.To) > 0 {
-		buf.WriteString(fmt.Sprintf("To: %s\n", serializeAddr(mail.To)))
+		fmt.Fprintf(&buf, "To: %s\n", serializeAddr(mail.To))
 	}
 	if len(mail.Cc) > 0 {
-		buf.WriteString(fmt.Sprintf("Cc: %s\n", serializeAddr(mail.Cc)))
+		fmt.Fprintf(&buf, "Cc: %s\n", serializeAddr(mail.Cc))
 	}
 	if len(mail.Bcc) > 0 {
-		buf.WriteString(fmt.Sprintf("Bcc: %s\n", serializeAddr(mail.Bcc)))
+		fmt.Fprintf(&buf, "Bcc: %s\n", serializeAddr(mail.Bcc))
 	}
 
-	buf.WriteString(fmt.Sprintf("Subject: %s\n", mail.Subject))
+	fmt.Fprintf(&buf, "Subject: %s\n", mail.Subject)
 
 	if len(mail.Text) > 0 {
-		buf.WriteString(fmt.Sprintf("Text:\n %s\n", mail.Text))
+		fmt.Fprintf(&buf, "Text:\n %s\n", mail.Text)
 	} else {
 		buf.WriteString("Text: <none>\n")
 	}
 
 	if len(mail.Html) > 0 {
-		buf.WriteString(fmt.Sprintf("HTML:\n %s\n", mail.Html))
+		fmt.Fprintf(&buf, "HTML:\n %s\n", mail.Html)
 	} else {
 		buf.WriteString("HTML: <none>\n")
 	}
