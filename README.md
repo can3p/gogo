@@ -2,6 +2,10 @@
 
 **WARN**: Work in progress, incompatible changes or force push can happen any time
 
+## Packages
+
+### Forms
+
 Forms expect `htmx` to be set up for the application. The principle there
 is that we want to keep things simple, adding a form to a website should
 be as trivial as it can be. The simplest thing is to avoid touching
@@ -153,3 +157,41 @@ your own!
   </div>
 </form>
 ```
+
+### Testcontainers
+
+The `testcontainers/postgres` package provides a PostgreSQL test container for integration testing. It spins up a real PostgreSQL instance in Docker and applies migrations.
+
+```go
+import (
+    "testing"
+    "github.com/can3p/gogo/testcontainers/postgres"
+)
+
+func TestMain(m *testing.M) {
+    code := m.Run()
+    _ = postgres.Cleanup()
+    if code != 0 {
+        os.Exit(code)
+    }
+}
+
+func TestSomething(t *testing.T) {
+    testDB, err := postgres.NewTestDB(postgres.Options{
+        MigrationsDir: "path/to/migrations",
+    })
+    if err != nil {
+        t.Fatal(err)
+    }
+    defer testDB.Close()
+
+    // Use testDB.DB (*sqlx.DB) for database operations
+    // Use testDB.ConnInfo for connection details
+}
+```
+
+**Features:**
+- Shared container across tests for efficiency
+- Each test gets an isolated database
+- Automatic migration application
+- Connection info available for external tools
