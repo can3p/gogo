@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log/slog"
+	"maps"
 	"net/http"
 
 	"github.com/can3p/gogo/util/transact"
@@ -52,7 +53,7 @@ type Form interface {
 	AddError(fieldName string, message string)
 	Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error)
 	AddTemplateData(field string, value any)
-	TemplateData() map[string]interface{}
+	TemplateData() map[string]any
 
 	// the only thing to implement in the child form
 	Validate(c *gin.Context, exec boil.ContextExecutor) error
@@ -92,7 +93,7 @@ type FormBase[T any] struct {
 	Errors            FormErrors
 	FormError         string
 	Input             *T
-	ExtraTemplateData map[string]interface{}
+	ExtraTemplateData map[string]any
 }
 
 func (f *FormBase[T]) FormName() string {
@@ -118,17 +119,15 @@ func (f *FormBase[T]) AddTemplateData(field string, value any) {
 	f.ExtraTemplateData[field] = value
 }
 
-func (f *FormBase[T]) TemplateData() map[string]interface{} {
-	data := map[string]interface{}{
+func (f *FormBase[T]) TemplateData() map[string]any {
+	data := map[string]any{
 		"Input":     f.Input,
 		"Errors":    f.Errors,
 		"FormError": f.FormError,
 		"FormSaved": f.FormSaved,
 	}
 
-	for k, v := range f.ExtraTemplateData {
-		data[k] = v
-	}
+	maps.Copy(data, f.ExtraTemplateData)
 
 	return data
 }
