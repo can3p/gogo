@@ -27,7 +27,7 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: make test
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
@@ -65,4 +65,4 @@ jobs:
           cache: true
 
       - name: Build
-        run: go build ./...
+        run: make build

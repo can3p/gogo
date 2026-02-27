@@ -55,6 +55,28 @@ URL/link generation helpers.
 ### `markdown/`
 Markdown processing utilities.
 
+## Development
+
+### Verification
+Always run checks before committing:
+```bash
+make check
+```
+
+This runs build, test, and lint in sequence.
+
+### Individual Commands
+```bash
+make test   # Run tests with race detection and coverage
+make lint   # Run golangci-lint
+make build  # Build all packages
+make fix    # Run go fix and go mod tidy
+```
+
+### CI Requirements
+- All PRs must pass `make test` and `make lint`
+- Tests require Docker (for testcontainers)
+
 ## Dependencies
 
 - `github.com/gin-gonic/gin` - Web framework
