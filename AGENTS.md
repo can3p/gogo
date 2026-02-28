@@ -57,6 +57,14 @@ Markdown processing utilities.
 
 ## Development
 
+### Development Workflow
+Before making code changes, run `make fix` to ensure code is properly formatted and dependencies are up to date:
+```bash
+make fix
+```
+
+This runs `go fix` and `go mod tidy` to prevent old code patterns from slipping in.
+
 ### Verification
 Always run checks before committing:
 ```bash

@@ -9,7 +9,7 @@ type Config struct {
 
 func (c *Config) Validate() error {
 	if c.ApiKeyPublic == "" || c.ApiKeyPrivate == "" {
-		return errors.New("Mailjet API key public and private are required")
+		return errors.New("mailjet API key public and private are required")
 	}
 
 	return nil
