@@ -10,7 +10,7 @@ const words = "lorem ipsum dolor amet consectetur adipiscing elit eiusmod tempor
 var lorem = func() map[string]struct{} {
 	out := map[string]struct{}{}
 
-	for w := range strings.SplitSeq(words, " ") {
+	for _, w := range strings.Split(words, " ") {
 		out[w] = struct{}{}
 	}
 
