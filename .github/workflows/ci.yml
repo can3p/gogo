@@ -32,8 +32,9 @@ jobs:
       - name: Check for uncommitted changes
         run: |
           if ! git diff --exit-code || ! git diff --cached --exit-code; then
-            echo "❌ make fix produced changes. Please run 'make fix' locally and commit the changes."
-            git diff
+            echo "::error::make fix produced changes. Please run 'make fix' locally and commit the changes."
+            echo "Changes detected:" >&2
+            git diff >&2
             exit 1
           fi
           echo "✅ No changes needed from make fix"
