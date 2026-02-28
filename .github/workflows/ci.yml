@@ -40,8 +40,9 @@ jobs:
         id: auto-commit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "chore: run make fix [skip ci]"
+          commit_message: "chore: run make fix"
           file_pattern: "*.go go.mod go.sum"
+          skip_ci: false
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && steps.auto-commit.outputs.changes_detected == 'true'
