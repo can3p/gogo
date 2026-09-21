@@ -10,36 +10,28 @@ Gogo is a Go library providing common utilities for web applications built with 
 Form handling with htmx integration. Provides validation, error handling, and SPA-like behavior.
 
 ### `testcontainers/postgres/`
-PostgreSQL test container for integration testing.
+PostgreSQL databases for integration tests, on testcontainers-go.
 
-**Key types:**
-- `TestDB` - Wraps a test database instance with `*sqlx.DB` and connection info
-- `Options` - Configuration for `NewTestDB()`, includes `MigrationsDir`
-- `ConnectionInfo` - Database connection details (Host, Port, User, Password, DBName, SSLMode)
+**Key API:**
+- `New(t testing.TB, opts ...Option) *TestDB` - migrated, empty database per test; dropped via `t.Cleanup`
+- Options: `WithMigrationsDir` (required), `WithMigrationsTable` (default `"migrations"`), `WithImage` (default `postgres:16-alpine`)
+- `TestDB` - `DB *sqlx.DB`, `SQL *sql.DB`, `URL string`
+- `Cleanup()` - terminates the shared container (call in `TestMain`)
+- Deprecated: `NewTestDB(Options)`, `Options`, `ConnectionInfo`, `TestDB.ConnInfo`
 
-**Key functions:**
-- `NewTestDB(opts Options)` - Creates isolated test database with migrations applied
-- `Cleanup()` - Purges the shared container (call in `TestMain`)
+**Design:** one container per test binary; migrations applied once into a template database; each test gets `CREATE DATABASE ... TEMPLATE`.
 
 **Usage pattern:**
 ```go
 func TestMain(m *testing.M) {
     code := m.Run()
     _ = postgres.Cleanup()
-    if code != 0 {
-        os.Exit(code)
-    }
+    os.Exit(code)
 }
 
 func TestExample(t *testing.T) {
-    testDB, err := postgres.NewTestDB(postgres.Options{
-        MigrationsDir: "path/to/migrations",
-    })
-    require.NoError(t, err)
-    defer testDB.Close()
-    
-    // Use testDB.DB for queries
-    // Use testDB.ConnInfo for connection details
+    db := postgres.New(t, postgres.WithMigrationsDir("path/to/migrations"))
+    // Use db.DB for queries, db.URL for external tools
 }
 ```
 
@@ -90,5 +82,5 @@ make fix    # Run go fix and go mod tidy
 - `github.com/gin-gonic/gin` - Web framework
 - `github.com/jmoiron/sqlx` - SQL extensions
 - `github.com/volatiletech/sqlboiler/v4` - ORM
-- `github.com/ory/dockertest/v3` - Docker test containers
+- `github.com/testcontainers/testcontainers-go` - Docker test containers
 - `github.com/rubenv/sql-migrate` - Database migrations
