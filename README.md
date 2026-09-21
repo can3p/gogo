@@ -160,38 +160,39 @@ your own!
 
 ### Testcontainers
 
-The `testcontainers/postgres` package provides a PostgreSQL test container for integration testing. It spins up a real PostgreSQL instance in Docker and applies migrations.
+The `testcontainers/postgres` package gives each integration test a real, migrated, empty PostgreSQL database of its own, using [testcontainers-go](https://golang.testcontainers.org/).
 
 ```go
 import (
+    "os"
     "testing"
+
     "github.com/can3p/gogo/testcontainers/postgres"
 )
 
 func TestMain(m *testing.M) {
     code := m.Run()
-    _ = postgres.Cleanup()
-    if code != 0 {
-        os.Exit(code)
-    }
+    _ = postgres.Cleanup() // optional: stop the container right away
+    os.Exit(code)
 }
 
 func TestSomething(t *testing.T) {
-    testDB, err := postgres.NewTestDB(postgres.Options{
-        MigrationsDir: "path/to/migrations",
-    })
-    if err != nil {
-        t.Fatal(err)
-    }
-    defer testDB.Close()
+    t.Parallel()
 
-    // Use testDB.DB (*sqlx.DB) for database operations
-    // Use testDB.ConnInfo for connection details
+    db := postgres.New(t, postgres.WithMigrationsDir("../../migrations"))
+
+    // db.DB is a *sqlx.DB, db.SQL a *sql.DB, db.URL the connection string.
+    // The database is dropped when the test ends.
 }
 ```
 
 **Features:**
-- Shared container across tests for efficiency
-- Each test gets an isolated database
-- Automatic migration application
-- Connection info available for external tools
+- One container per test binary, shared by all tests
+- Migrations are applied once into a template database; each test gets a copy made with `CREATE DATABASE ... TEMPLATE`, so setup cost does not grow with the number of migrations
+- Unique database per test, safe with `t.Parallel()`
+- The migrations directory is required and checked, so a wrong path fails loudly instead of running tests against an empty schema
+- Migrations are recorded in the `migrations` table by default (`WithMigrationsTable` to change), matching what the sql-migrate CLI reads from `dbconfig.yml` rather than the Go API's `gorp_migrations` default
+- `WithImage` overrides the default `postgres:16-alpine` image
+- Uses the `lib/pq` driver; `URL` is a standard `postgres://` URL, so it can be opened with pgx or passed to a subprocess
+
+`NewTestDB(Options{...})` still works but is deprecated in favour of `New`.
