@@ -1,52 +1,101 @@
+// Package ginhelpers answers gin requests with the result of a service call:
+// a page, a JSON API response, or the status an apperr error maps to.
 package ginhelpers
 
 import (
+	"errors"
 	"net/http"
 
-	"github.com/can3p/gogo/util"
-	"github.com/friendsofgo/errors"
+	"github.com/can3p/gogo/apperr"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/mo"
 )
 
-var ErrNotFound = errors.Errorf("not found")
-var ErrNeedsLogin = errors.Errorf("needs login")
-var ErrForbidden = errors.Errorf("forbidden")
-var ErrBadRequest = errors.Errorf("invalid input")
-
-type Redirector interface {
-	RedirectToLogin(c *gin.Context)
+// Options configure how failed requests are answered. Set them per router
+// with the Configure middleware.
+type Options struct {
+	// RedirectToLogin answers a page that failed with apperr.ErrNeedsLogin.
+	// Without it, the page answers 401.
+	RedirectToLogin func(*gin.Context)
+	// ShowErrors puts the error text into failed responses. Leave it off in
+	// production, where an error can carry internal details.
+	ShowErrors bool
 }
 
-func HTML[T any](c *gin.Context, redirector Redirector, templateName string, result mo.Result[T]) {
+const optionsKey = "github.com/can3p/gogo/util/ginhelpers.Options"
+
+// Configure sets the options HTML, HTMLError and API use for the requests
+// it handles. Without it they use the zero Options: no error text, and 401
+// for a page that needs a login.
+func Configure(opts Options) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(optionsKey, opts)
+		c.Next()
+	}
+}
+
+func options(c *gin.Context) Options {
+	v, _ := c.Get(optionsKey)
+	opts, _ := v.(Options)
+
+	return opts
+}
+
+// Status is the HTTP status for an error a page or an API call failed with.
+func Status(err error) int {
+	var invalid *apperr.ValidationError
+
+	switch {
+	case errors.Is(err, apperr.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, apperr.ErrForbidden):
+		return http.StatusForbidden
+	case errors.Is(err, apperr.ErrNeedsLogin):
+		return http.StatusUnauthorized
+	case errors.Is(err, apperr.ErrConflict):
+		return http.StatusConflict
+	case errors.As(err, &invalid):
+		return http.StatusBadRequest
+	}
+
+	return http.StatusInternalServerError
+}
+
+// HTML renders templateName with the result's value, or answers its error
+// with HTMLError.
+func HTML[T any](c *gin.Context, templateName string, result mo.Result[T]) {
 	if result.IsOk() {
 		c.HTML(http.StatusOK, templateName, result.MustGet())
 		return
 	}
 
-	var httpCode = http.StatusInternalServerError
+	HTMLError(c, result.Error())
+}
 
-	switch result.Error() {
-	case ErrNotFound:
-		httpCode = http.StatusNotFound
-	case ErrForbidden:
-		httpCode = http.StatusForbidden
-	case ErrBadRequest:
-		httpCode = http.StatusBadRequest
-	case ErrNeedsLogin:
-		redirector.RedirectToLogin(c)
+// HTMLError answers a page request that failed with err: a redirect to the
+// login page for apperr.ErrNeedsLogin when Options.RedirectToLogin is set,
+// otherwise Status(err).
+func HTMLError(c *gin.Context, err error) {
+	opts := options(c)
+
+	if errors.Is(err, apperr.ErrNeedsLogin) && opts.RedirectToLogin != nil {
+		opts.RedirectToLogin(c)
 		c.Abort()
 		return
 	}
 
-	if util.InCluster() {
+	httpCode := Status(err)
+
+	if !opts.ShowErrors {
 		c.Status(httpCode)
 		return
 	}
 
-	c.String(httpCode, result.Error().Error())
+	c.String(httpCode, err.Error())
 }
 
+// API answers a JSON API request: {"data": value}, or Status(err) with
+// {"errors": [text]}.
 func API[T any](c *gin.Context, result mo.Result[T]) {
 	if result.IsOk() {
 		c.JSON(http.StatusOK, gin.H{
@@ -55,18 +104,9 @@ func API[T any](c *gin.Context, result mo.Result[T]) {
 		return
 	}
 
-	var httpCode = http.StatusInternalServerError
+	httpCode := Status(result.Error())
 
-	switch result.Error() {
-	case ErrNotFound:
-		httpCode = http.StatusNotFound
-	case ErrForbidden:
-		httpCode = http.StatusForbidden
-	case ErrBadRequest:
-		httpCode = http.StatusBadRequest
-	}
-
-	if util.InCluster() {
+	if !options(c).ShowErrors {
 		c.Status(httpCode)
 		return
 	}

@@ -2,16 +2,12 @@ package forms
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"maps"
 	"net/http"
 
-	"github.com/can3p/gogo/util/transact"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 var ErrValidationFailed = errors.Errorf("Form validation failed")
@@ -51,12 +47,14 @@ type Form interface {
 	RenderForm(c *gin.Context)
 	SetFormError(message string)
 	AddError(fieldName string, message string)
-	Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error)
+	// Save stores the validated input. It runs outside any transaction: a
+	// form holds the services it needs, and a service owns its transactions.
+	Save(c context.Context) (FormSaveAction, error)
 	AddTemplateData(field string, value any)
 	TemplateData() map[string]any
 
 	// the only thing to implement in the child form
-	Validate(c *gin.Context, exec boil.ContextExecutor) error
+	Validate(c *gin.Context) error
 }
 
 type FormErrors map[string]string
@@ -157,7 +155,7 @@ func (f *FormBase[T]) RenderForm(c *gin.Context) {
 	c.HTML(http.StatusOK, f.FormTemplate, f.TemplateData())
 }
 
-func (f *FormBase[T]) Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error) {
+func (f *FormBase[T]) Save(c context.Context) (FormSaveAction, error) {
 	f.FormSaved = true
 
 	if f.FullPageReloadOnSave {
@@ -167,13 +165,13 @@ func (f *FormBase[T]) Save(c context.Context, exec boil.ContextExecutor) (FormSa
 	return FormSaveDefault(f.KeepValuesAfterSave), nil
 }
 
-func DefaultHandler(c *gin.Context, db *sqlx.DB, form Form) {
+func DefaultHandler(c *gin.Context, form Form) {
 	if err := form.ShouldBind(c); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"explanation": "Failed to process request", "err": err.Error()})
 		return
 	}
 
-	if err := form.Validate(c, db); err != nil {
+	if err := form.Validate(c); err != nil {
 		if err != ErrValidationFailed {
 			form.SetFormError(err.Error())
 		}
@@ -182,14 +180,8 @@ func DefaultHandler(c *gin.Context, db *sqlx.DB, form Form) {
 		return
 	}
 
-	var action FormSaveAction
-
-	if err := transact.Transact(db, func(tx *sql.Tx) error {
-		var err error
-		action, err = form.Save(c, tx)
-
-		return err
-	}); err != nil {
+	action, err := form.Save(c)
+	if err != nil {
 		slog.Error("Failed to save form", "name", form.FormName(), "err", err.Error())
 		c.Status(http.StatusInternalServerError)
 		return

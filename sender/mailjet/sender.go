@@ -3,29 +3,25 @@ package mailjet
 import (
 	"context"
 	"net/mail"
-	"os"
+	"strings"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/mailjet/config"
 	mailjet "github.com/mailjet/mailjet-apiv3-go/v3"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type mailjerSender struct {
 	client *mailjet.Client
 }
 
-var RequiredEnv = []string{"MJ_APIKEY_PUBLIC", "MJ_APIKEY_PRIVATE"}
-
-func NewSender() *mailjerSender {
-	return NewSenderFromConfig(&config.Config{
-		ApiKeyPublic:  os.Getenv("MJ_APIKEY_PUBLIC"),
-		ApiKeyPrivate: os.Getenv("MJ_APIKEY_PRIVATE"),
-	})
-}
-
 func NewSenderFromConfig(config *config.Config) *mailjerSender {
-	mailjetClient := mailjet.NewMailjetClient(config.ApiKeyPublic, config.ApiKeyPrivate)
+	var baseURL []string
+	if config.BaseURL != "" {
+		// The SDK's base is the v3 API root, and it appends ".1/send" to it.
+		baseURL = append(baseURL, strings.TrimSuffix(config.BaseURL, "/")+"/v3")
+	}
+
+	mailjetClient := mailjet.NewMailjetClient(config.ApiKeyPublic, config.ApiKeyPrivate.Reveal(), baseURL...)
 
 	return &mailjerSender{
 		client: mailjetClient,
@@ -50,7 +46,7 @@ func toMailjet(addrs []mail.Address) *mailjet.RecipientsV31 {
 
 }
 
-func (m *mailjerSender) Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *sender.Mail) error {
+func (m *mailjerSender) Send(ctx context.Context, mail *sender.Mail) error {
 	messagesInfo := []mailjet.InfoMessagesV31{
 		{
 			From: &mailjet.RecipientV31{

@@ -8,6 +8,8 @@ Gogo is a Go library providing common utilities for web applications built with 
 
 ### `forms/`
 Form handling with htmx integration. Provides validation, error handling, and SPA-like behavior.
+`Validate(c)` and `Save(ctx)` take no executor, and `DefaultHandler(c, form)` opens no transaction: a form
+holds the services it calls.
 
 ### `testcontainers/postgres/`
 PostgreSQL databases for integration tests, on testcontainers-go.
@@ -35,11 +37,22 @@ func TestExample(t *testing.T) {
 }
 ```
 
+### `settings/`
+go-flags helpers: `Parse(p, args)` treats an empty required setting as missing and names flag and env var;
+`Secret` redacts itself when printed.
+
+### `apperr/`
+Errors services return and transports map: `ErrNotFound`, `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`,
+`ValidationError`/`Invalid`. Imports nothing.
+
 ### `sender/`
-Email sending utilities.
+`Sender.Send(ctx, mail)`; console and Mailjet senders. Mailjet's `config.Config.BaseURL` points it at a mock
+(tommy). No database: queueing mail is the application's job.
 
 ### `util/`
-General utilities.
+`ginhelpers` (`Status`, `HTML`, `HTMLError`, `API`, configured per router with `Configure(Options)`),
+`ginhelpers/csrf`, `transact`, `lorem`, `logging`. No globals: configuration is passed in, never read from
+the environment.
 
 ### `links/`
 URL/link generation helpers.
@@ -81,6 +94,6 @@ make fix    # Run go fix and go mod tidy
 
 - `github.com/gin-gonic/gin` - Web framework
 - `github.com/jmoiron/sqlx` - SQL extensions
-- `github.com/volatiletech/sqlboiler/v4` - ORM
+- `github.com/jessevdk/go-flags` - settings
 - `github.com/testcontainers/testcontainers-go` - Docker test containers
 - `github.com/rubenv/sql-migrate` - Database migrations
