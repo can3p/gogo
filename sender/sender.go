@@ -3,12 +3,13 @@ package sender
 import (
 	"context"
 	"net/mail"
-
-	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
+// Sender delivers a mail. Queueing it in the database, to send it only if a
+// transaction commits, is the application's business: a queue is a
+// repository that hands stored mails to a Sender.
 type Sender interface {
-	Send(ctx context.Context, exec boil.ContextExecutor, uniqueID string, emailType string, mail *Mail) error
+	Send(ctx context.Context, mail *Mail) error
 }
 
 type Mail struct {

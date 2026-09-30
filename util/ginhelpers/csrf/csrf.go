@@ -1,6 +1,9 @@
+// Package csrf rejects state-changing requests that don't carry the session's
+// CSRF token, in the X-CSRFToken header or the header_csrf form field.
 package csrf
 
 import (
+	"crypto/subtle"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +35,7 @@ func CheckCSRF(c *gin.Context, getUserCSRFToken func(*gin.Context) string) {
 		panic("session does not contain csrf token")
 	}
 
-	if csrfToken != userCSRFToken {
+	if subtle.ConstantTimeCompare([]byte(csrfToken), []byte(userCSRFToken)) != 1 {
 		c.AbortWithStatus(http.StatusForbidden)
 		return
 	}

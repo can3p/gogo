@@ -32,10 +32,11 @@ type SettingsGeneralFormInput struct {
 
 type SettingsGeneralForm struct {
 	*FormBase[SettingsGeneralFormInput]
-	User *core.User
+	User     *core.User
+	Settings *settings.Service
 }
 
-func SettingsGeneralFormNew(u *core.User) Form {
+func SettingsGeneralFormNew(svc *settings.Service, u *core.User) Form {
 	var form Form = &SettingsGeneralForm{
 		FormBase: &FormBase[SettingsGeneralFormInput]{
 			Name:         "settings_general",
@@ -45,13 +46,14 @@ func SettingsGeneralFormNew(u *core.User) Form {
 				"User": u,
 			},
 		},
-		User: u,
+		User:     u,
+		Settings: svc,
 	}
 
 	return form
 }
 
-func (f *SettingsGeneralForm) Validate(c *gin.Context, boil.ContextExecutor) error {
+func (f *SettingsGeneralForm) Validate(c *gin.Context) error {
 	if f.Input.Timezone == "" {
 		f.AddError("timezone", "timezone is required")
 		return ErrValidationFailed
@@ -60,17 +62,14 @@ func (f *SettingsGeneralForm) Validate(c *gin.Context, boil.ContextExecutor) err
 	return nil
 }
 
-func (f *SettingsGeneralForm) Save(c context.Context, exec boil.ContextExecutor) (FormSaveAction, error) {
-	f.User.Timezone = f.Input.Timezone
-
-	if _, err := f.User.Update(c, exec, boil.Whitelist(
-		core.UserColumns.Timezone,
-		core.UserColumns.UpdatedAt,
-	)); err != nil {
-		return nil, errors.Wrapf(err, "failed to save to the db")
+// Save runs outside any transaction: the form holds the service it needs,
+// and the service owns its transactions.
+func (f *SettingsGeneralForm) Save(c context.Context) (FormSaveAction, error) {
+	if err := f.Settings.SetTimezone(c, f.User, f.Input.Timezone); err != nil {
+		return nil, errors.Wrapf(err, "failed to save the timezone")
 	}
 
-	return f.FormBase.Save(FormSaveDefault(true))
+	return f.FormBase.Save(c)
 }
 ```
 
@@ -88,9 +87,9 @@ func (f *SettingsGeneralForm) Save(c context.Context, exec boil.ContextExecutor)
 		userData := auth.GetUserData(c)
 		dbUser := userData.DBUser
 
-		form := forms.SettingsGeneralFormNew(dbUser)
+		form := forms.SettingsGeneralFormNew(settingsService, dbUser)
 
-		forms.DefaultHandler(c, db, form)
+		forms.DefaultHandler(c, form)
 	})
 ```
 
@@ -157,6 +156,44 @@ your own!
   </div>
 </form>
 ```
+
+### Settings
+
+`settings` sits on top of [go-flags](https://github.com/jessevdk/go-flags). Declare every setting once, with paired `long:` and `env:` tags, and parse with `settings.Parse` instead of `ParseArgs`:
+
+```go
+type Config struct {
+    DatabaseURL string          `long:"database-url" env:"DATABASE_URL" required:"true"`
+    SessionSalt settings.Secret `long:"session-salt" env:"SESSION_SALT" required:"true"`
+    Mailjet     mjconfig.Config `group:"Mailjet" namespace:"mj" env-namespace:"MJ"`
+}
+
+var cfg Config
+p := flags.NewParser(&cfg, flags.HelpFlag) // not flags.Default: it prints go-flags' own error first
+if _, err := settings.Parse(p, os.Args[1:]); err != nil {
+    // "required settings are missing or empty: --database-url or $DATABASE_URL, ..."
+}
+```
+
+- A required setting whose environment variable exists but is empty counts as missing (go-flags alone accepts it), and the error names every missing setting by flag and variable. It fails before any command runs.
+- `settings.Secret` redacts itself in `fmt`, `slog` and JSON; `Reveal()` returns the value.
+
+### Mail
+
+`sender.Sender` delivers a `sender.Mail`. The Mailjet sender takes a `sender/mailjet/config.Config`; its `BaseURL` (`--mj.api-base`, `MJ_API_BASE` in the group above) points it at a Mailjet mock such as [tommy](https://github.com/can3p/tommy) in development and tests. Queueing mail in the database, so it is sent only if a transaction commits, is the application's job.
+
+### Pages and errors
+
+Services return the errors of `apperr` (`ErrNotFound`, `ErrForbidden`, `ErrNeedsLogin`, `ErrConflict`, `ValidationError`), wrapped with a reason. `util/ginhelpers` maps them to statuses (`Status`) and answers requests with `HTML`, `HTMLError` and `API`. Configure it per router:
+
+```go
+r.Use(ginhelpers.Configure(ginhelpers.Options{
+    RedirectToLogin: auth.RedirectToLogin, // pages that fail with ErrNeedsLogin
+    ShowErrors:      !production,          // error text in responses
+}))
+```
+
+`util/ginhelpers/csrf` checks the session's CSRF token in the `X-CSRFToken` header or the `header_csrf` form field.
 
 ### Testcontainers
 
