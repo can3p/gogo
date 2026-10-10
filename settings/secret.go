@@ -1,11 +1,10 @@
 package settings
 
-import "log/slog"
-
 const redacted = "[redacted]"
 
-// Secret is a string setting that doesn't print: fmt, slog and JSON show it
-// redacted. Reveal returns the value.
+// Secret is a string setting that doesn't print: fmt, JSON and loggers (zap
+// through fmt.Stringer, slog through encoding.TextMarshaler) show it redacted.
+// Reveal returns the value.
 type Secret string
 
 // Reveal returns the secret's value, for the one place that needs it.
@@ -26,11 +25,6 @@ func (s Secret) String() string {
 // GoString redacts the secret for %#v.
 func (s Secret) GoString() string {
 	return `"` + s.String() + `"`
-}
-
-// LogValue redacts the secret for slog.
-func (s Secret) LogValue() slog.Value {
-	return slog.StringValue(s.String())
 }
 
 // MarshalText redacts the secret for encoding/json and other text encoders.

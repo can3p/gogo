@@ -1,12 +1,11 @@
 package logging
 
-import "github.com/kr/pretty"
+import "go.uber.org/zap"
 
-func LogValue[A any](a A, t ...any) A {
-	vals := []any{}
-	vals = append(vals, t...)
-	vals = append(vals, a)
-	_, _ = pretty.Println(vals...)
+// LogValue logs a at debug level under msg and returns it, to inspect a
+// value in the middle of an expression.
+func LogValue[A any](logger *zap.Logger, msg string, a A) A {
+	logger.Debug(msg, zap.Any("value", a))
 
 	return a
 }

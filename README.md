@@ -89,7 +89,7 @@ func (f *SettingsGeneralForm) Save(c context.Context) (FormSaveAction, error) {
 
 		form := forms.SettingsGeneralFormNew(settingsService, dbUser)
 
-		forms.DefaultHandler(c, form)
+		forms.DefaultHandler(c, logger, form)
 	})
 ```
 

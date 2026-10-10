@@ -1,66 +1,42 @@
 package console
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"net/mail"
-	"strings"
 
 	"github.com/can3p/gogo/sender"
+	"go.uber.org/zap"
 )
 
-type consoleSender struct{}
-
-func NewSender() *consoleSender {
-	return &consoleSender{}
+// consoleSender logs mails instead of sending them, for development.
+type consoleSender struct {
+	logger *zap.Logger
 }
 
-func serializeAddr(addr []mail.Address) string {
-	out := []string{}
+func NewSender(logger *zap.Logger) *consoleSender {
+	return &consoleSender{logger: logger}
+}
 
-	for _, addr := range addr {
+func addresses(addrs []mail.Address) []string {
+	out := make([]string, 0, len(addrs))
+
+	for _, addr := range addrs {
 		out = append(out, addr.String())
 	}
 
-	return strings.Join(out, ", ")
-}
-
-func (m *consoleSender) MailToString(mail *sender.Mail) string {
-	var buf bytes.Buffer
-
-	fmt.Fprintf(&buf, "From: %s\n", mail.From.String())
-
-	if len(mail.To) > 0 {
-		fmt.Fprintf(&buf, "To: %s\n", serializeAddr(mail.To))
-	}
-	if len(mail.Cc) > 0 {
-		fmt.Fprintf(&buf, "Cc: %s\n", serializeAddr(mail.Cc))
-	}
-	if len(mail.Bcc) > 0 {
-		fmt.Fprintf(&buf, "Bcc: %s\n", serializeAddr(mail.Bcc))
-	}
-
-	fmt.Fprintf(&buf, "Subject: %s\n", mail.Subject)
-
-	if len(mail.Text) > 0 {
-		fmt.Fprintf(&buf, "Text:\n %s\n", mail.Text)
-	} else {
-		buf.WriteString("Text: <none>\n")
-	}
-
-	if len(mail.Html) > 0 {
-		fmt.Fprintf(&buf, "HTML:\n %s\n", mail.Html)
-	} else {
-		buf.WriteString("HTML: <none>\n")
-	}
-
-	return buf.String()
+	return out
 }
 
 func (m *consoleSender) Send(ctx context.Context, mail *sender.Mail) error {
-	fmt.Println("DEBUG Dump of email, nothing was sent!")
-	fmt.Println(m.MailToString(mail))
+	m.logger.Info("Mail not sent, console sender",
+		zap.Stringer("from", &mail.From),
+		zap.Strings("to", addresses(mail.To)),
+		zap.Strings("cc", addresses(mail.Cc)),
+		zap.Strings("bcc", addresses(mail.Bcc)),
+		zap.String("subject", mail.Subject),
+		zap.String("text", mail.Text),
+		zap.String("html", mail.Html),
+	)
 
 	return nil
 }

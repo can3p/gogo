@@ -13,6 +13,8 @@ import (
 	"github.com/can3p/gogo/forms"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type nameInput struct {
@@ -71,9 +73,12 @@ func TestDefaultHandler(t *testing.T) {
 				saveErr: tc.saveErr,
 			}
 
+			core, logs := observer.New(zap.ErrorLevel)
+			logger := zap.New(core)
+
 			r := gin.New()
 			r.SetHTMLTemplate(template.Must(template.New("form.html").Parse(`saved={{.FormSaved}} error={{index .Errors "name"}}`)))
-			r.POST("/", func(c *gin.Context) { forms.DefaultHandler(c, form) })
+			r.POST("/", func(c *gin.Context) { forms.DefaultHandler(c, logger, form) })
 
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(url.Values{"name": {tc.input}}.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -83,6 +88,12 @@ func TestDefaultHandler(t *testing.T) {
 			require.Equal(t, tc.wantStatus, w.Code)
 			require.Equal(t, tc.wantBody, w.Body.String())
 			require.Equal(t, tc.wantSaved, form.saved)
+
+			if tc.saveErr == nil {
+				require.Zero(t, logs.Len())
+			} else {
+				require.Equal(t, 1, logs.FilterField(zap.Error(tc.saveErr)).Len())
+			}
 		})
 	}
 }
