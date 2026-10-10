@@ -65,7 +65,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -79,6 +78,8 @@ import (
 	"github.com/lib/pq" // database/sql driver, registered as "postgres"
 	migrate "github.com/rubenv/sql-migrate"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -114,6 +115,7 @@ type config struct {
 	image           string
 	migrationsDir   string
 	migrationsTable string
+	logger          *zap.Logger
 	// legacy selects the behaviour of the deprecated NewTestDB: an empty
 	// migrationsDir means "no migrations", and an empty migrationsTable means
 	// sql-migrate's global default.
@@ -139,6 +141,12 @@ func WithMigrationsTable(table string) Option {
 // Postgres 13 or newer, which DROP DATABASE ... WITH (FORCE) requires.
 func WithImage(image string) Option {
 	return func(c *config) { c.image = image }
+}
+
+// WithLogger sets the logger that reports starting a container and building
+// a template database. New logs to the test (t.Log) by default.
+func WithLogger(logger *zap.Logger) Option {
+	return func(c *config) { c.logger = logger }
 }
 
 // TestDB is one test's own database.
@@ -172,6 +180,7 @@ func New(t testing.TB, opts ...Option) *TestDB {
 	cfg := config{
 		image:           DefaultImage,
 		migrationsTable: DefaultMigrationsTable,
+		logger:          zaptest.NewLogger(t),
 	}
 	for _, opt := range opts {
 		opt(&cfg)
@@ -294,14 +303,19 @@ func newTestDB(cfg config) (*TestDB, error) {
 		key = templateKey{dir: dir, table: cfg.migrationsTable}
 	}
 
-	inst, err := getOrStart(cfg.image)
+	logger := cfg.logger
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	inst, err := getOrStart(cfg.image, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	stmt := "CREATE DATABASE %s"
 	if withMigrations {
-		template, err := inst.template(key)
+		template, err := inst.template(key, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -369,7 +383,7 @@ func checkMigrationsDir(dir string) (string, error) {
 	return abs, nil
 }
 
-func getOrStart(image string) (*instance, error) {
+func getOrStart(image string, logger *zap.Logger) (*instance, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -377,7 +391,7 @@ func getOrStart(image string) (*instance, error) {
 		return inst, nil
 	}
 
-	inst, err := start(image)
+	inst, err := start(image, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +400,7 @@ func getOrStart(image string) (*instance, error) {
 	return inst, nil
 }
 
-func start(image string) (*instance, error) {
+func start(image string, logger *zap.Logger) (*instance, error) {
 	ctx := context.Background()
 
 	container, err := tcpostgres.Run(ctx, image,
@@ -431,7 +445,7 @@ func start(image string) (*instance, error) {
 		return nil, fmt.Errorf("connecting to the maintenance database: %w", err)
 	}
 
-	log.Printf("postgres: started %s at %s", image, net.JoinHostPort(inst.host, inst.port))
+	logger.Info("postgres: started container", zap.String("image", image), zap.String("addr", net.JoinHostPort(inst.host, inst.port)))
 
 	return inst, nil
 }
@@ -439,7 +453,7 @@ func start(image string) (*instance, error) {
 // template returns the name of the template database holding the migrations
 // in key.dir, building it on first use. The outcome, error included, is
 // remembered so every test in the binary sees the same result.
-func (i *instance) template(key templateKey) (string, error) {
+func (i *instance) template(key templateKey, logger *zap.Logger) (string, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
@@ -448,7 +462,7 @@ func (i *instance) template(key templateKey) (string, error) {
 	}
 
 	name := fmt.Sprintf("template_%d", templateCounter.Add(1))
-	err := i.buildTemplate(name, key)
+	err := i.buildTemplate(name, key, logger)
 	if err != nil {
 		_, _ = i.admin.Exec("DROP DATABASE IF EXISTS " + pq.QuoteIdentifier(name) + " WITH (FORCE)")
 	}
@@ -457,7 +471,7 @@ func (i *instance) template(key templateKey) (string, error) {
 	return name, err
 }
 
-func (i *instance) buildTemplate(name string, key templateKey) error {
+func (i *instance) buildTemplate(name string, key templateKey, logger *zap.Logger) error {
 	if _, err := i.admin.Exec("CREATE DATABASE " + pq.QuoteIdentifier(name)); err != nil {
 		return fmt.Errorf("creating template database: %w", err)
 	}
@@ -487,7 +501,7 @@ func (i *instance) buildTemplate(name string, key templateKey) error {
 		return fmt.Errorf("closing template database: %w", err)
 	}
 
-	log.Printf("postgres: applied %d migrations from %s to template %s", n, key.dir, name)
+	logger.Info("postgres: applied migrations to template", zap.Int("count", n), zap.String("dir", key.dir), zap.String("template", name))
 
 	return nil
 }

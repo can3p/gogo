@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"testing"
 
 	"github.com/can3p/gogo/settings"
 	"github.com/jessevdk/go-flags"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type mailConfig struct {
@@ -130,7 +131,8 @@ func TestSecret_DoesNotPrint(t *testing.T) {
 	}{Token: "hunter2"}
 
 	var logged bytes.Buffer
-	slog.New(slog.NewJSONHandler(&logged, nil)).Info("config", "token", cfg.Token)
+	logger := zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&logged), zap.InfoLevel))
+	logger.Info("config", zap.Any("token", cfg.Token), zap.Reflect("cfg", cfg))
 
 	jsonBytes, err := json.Marshal(cfg)
 	require.NoError(t, err)

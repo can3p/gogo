@@ -2,12 +2,12 @@ package forms
 
 import (
 	"context"
-	"log/slog"
 	"maps"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 var ErrValidationFailed = errors.Errorf("Form validation failed")
@@ -165,7 +165,9 @@ func (f *FormBase[T]) Save(c context.Context) (FormSaveAction, error) {
 	return FormSaveDefault(f.KeepValuesAfterSave), nil
 }
 
-func DefaultHandler(c *gin.Context, form Form) {
+// DefaultHandler binds, validates and saves form. A failed save is logged to
+// logger and answered with 500.
+func DefaultHandler(c *gin.Context, logger *zap.Logger, form Form) {
 	if err := form.ShouldBind(c); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"explanation": "Failed to process request", "err": err.Error()})
 		return
@@ -182,7 +184,7 @@ func DefaultHandler(c *gin.Context, form Form) {
 
 	action, err := form.Save(c)
 	if err != nil {
-		slog.Error("Failed to save form", "name", form.FormName(), "err", err.Error())
+		logger.Error("Failed to save form", zap.String("name", form.FormName()), zap.Error(err))
 		c.Status(http.StatusInternalServerError)
 		return
 	}
