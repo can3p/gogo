@@ -195,6 +195,62 @@ r.Use(ginhelpers.Configure(ginhelpers.Options{
 
 `util/ginhelpers/csrf` checks the session's CSRF token in the `X-CSRFToken` header or the `header_csrf` form field.
 
+### Sessions
+
+`sessions/pgstore` stores [gin sessions](https://github.com/gin-contrib/sessions) in PostgreSQL. It replaces [antonlindstrom/pgstore](https://github.com/antonlindstrom/pgstore) and reads the rows and cookies that pgstore wrote, so switching keeps everyone logged in.
+
+#### Why not antonlindstrom/pgstore
+
+- It is unmaintained: the last commit is from 2022.
+- It creates its table when the application starts, outside the application's migrations.
+- It imports `lib/pq`, a second PostgreSQL driver next to the pgx that gogo apps use.
+- Its cleanup of expired rows is a goroutine the application has to remember to start. Without it the table only grows.
+
+#### Differences from antonlindstrom/pgstore
+
+- **Same data.** The table, the cookie (the session ID, encoded with securecookie) and the row's `data` (the session values, encoded with the same codecs) are unchanged. A test reads a cookie and a row written the way pgstore writes them.
+- **The table comes from a migration**, which ships with the package (below). The store never creates it.
+- **Expired rows read as missing.** pgstore relied only on securecookie's timestamp in the cookie.
+- **A bad or tampered cookie, a missing row or undecodable data give a fresh session with a new ID**, not an error. gin-contrib only logs a store error, so an application sees the same result either way.
+- **MaxAge 0** (a browser-session cookie) keeps the row for `DefaultMaxAge`. pgstore wrote such a row as already expired, so its cleanup deleted it.
+- **`Regenerate(ctx, session)`** starts a fresh session at login and logout, against session fixation.
+- pgstore's special `created_on` and `expires_on` session values are not read.
+- Queries take the request's context; there is no `lib/pq`, `sqlx` or `pkg/errors`.
+
+#### The migration
+
+The store's table is a [sql-migrate](https://github.com/rubenv/sql-migrate) migration in `sessions/pgstore/migrations/`. Copy it into your application's migrations directory once, commit it, and it runs with your other migrations (the `sql-migrate` command, `fly.toml`'s `release_command`, and `testcontainers/postgres` in tests):
+
+```sh
+go run github.com/can3p/gogo/sessions/pgstore/cmd/pgstore-migrations -dir migrations
+```
+
+- The copy is named like a migration made with `sql-migrate new` at that moment, e.g. `20270304050607-gogo-pgstore-0001-http-sessions.sql`, so it runs after your existing migrations. If your directory holds a migration dated later than now, the copy is dated one second after it.
+- A copy is recognized by the name after its timestamp, so running the command again writes nothing. A copy that was edited is reported, not overwritten.
+- A gogo upgrade that changes the table adds a new file. Run the command again to copy it, with a new timestamp.
+- The migration uses `IF NOT EXISTS`, so where antonlindstrom/pgstore already created the table it only records itself.
+
+Guard against a missed copy with a test, so CI fails until the command has run:
+
+```go
+func TestSessionMigrationsInstalled(t *testing.T) {
+	require.NoError(t, pgstore.CheckMigrations("../../migrations"))
+}
+```
+
+`pgstore-migrations -check` does the same from a shell. An application that runs migrations from Go instead can read the files from `pgstore.Migrations` (an `embed.FS`).
+
+#### Usage
+
+```go
+store := pgstore.New(db, []byte(cfg.SessionSalt.Reveal()))
+go store.Cleanup(ctx, pgstore.DefaultCleanupInterval, logger) // deletes expired rows until ctx is done
+r.Use(ginsessions.Sessions("session", store))
+
+// at login and logout, against session fixation:
+if err := pgstore.Regenerate(c.Request.Context(), ginsessions.Default(c)); err != nil { ... }
+```
+
 ### Testcontainers
 
 The `testcontainers/postgres` package gives each integration test a real, migrated, empty PostgreSQL database of its own, using [testcontainers-go](https://golang.testcontainers.org/).
