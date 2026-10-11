@@ -58,10 +58,12 @@ cookies of `antonlindstrom/pgstore`, so an app can switch without logging anyone
   `gin-contrib` `sessions.Store`; `Options`, `MaxAge`, `MaxLength`
 - `Migrations` (embed.FS), `InstallMigrations(dir)`, `CheckMigrations(dir)`, and the command
   `cmd/pgstore-migrations [-dir migrations] [-check]` - the table is a sql-migrate migration in
-  `migrations/`, which an app copies into its own migrations directory and runs with the rest. The store
-  never creates its table. A migration file is never edited once released: a schema change is a new dated
-  file, so a copy stays byte-identical and `CheckMigrations` can compare it. The tests run the shipped
-  directory.
+  `migrations/` (`0001-http-sessions.sql`, ...), which an app copies into its own migrations directory and
+  runs with the rest. A copy is named `<timestamp>-gogo-pgstore-<name>` at install time (now in UTC, or one
+  second after the directory's newest timestamped migration), so it sorts after the app's migrations, and
+  is recognized by the part after the timestamp. The store never creates its table. A migration file is
+  never edited once released: a schema change is a new numbered file, so a copy stays byte-identical and
+  `CheckMigrations` can compare it. The tests run the shipped directory.
 - `Regenerate(ctx, ginsessions.Session)` - deletes the old row and clears the session, so the next `Save` uses a
   fresh ID and cookie (login and logout, against session fixation)
 - `DeleteExpired(ctx)`, `Cleanup(ctx, interval, logger)` - the app starts `Cleanup` itself (blocking, until

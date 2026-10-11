@@ -225,9 +225,9 @@ The store's table is a [sql-migrate](https://github.com/rubenv/sql-migrate) migr
 go run github.com/can3p/gogo/sessions/pgstore/cmd/pgstore-migrations -dir migrations
 ```
 
-- The file keeps its name, which is its sql-migrate ID. Running the command again writes nothing; a copy that was edited is reported, not overwritten.
-- A gogo upgrade that changes the table adds a new file. Run the command again to copy it.
-- The ID is dated, so it may sort before migrations your application has already run. sql-migrate still applies it, because it runs every migration it hasn't recorded.
+- The copy is named like a migration made with `sql-migrate new` at that moment, e.g. `20270304050607-gogo-pgstore-0001-http-sessions.sql`, so it runs after your existing migrations. If your directory holds a migration dated later than now, the copy is dated one second after it.
+- A copy is recognized by the name after its timestamp, so running the command again writes nothing. A copy that was edited is reported, not overwritten.
+- A gogo upgrade that changes the table adds a new file. Run the command again to copy it, with a new timestamp.
 - The migration uses `IF NOT EXISTS`, so where antonlindstrom/pgstore already created the table it only records itself.
 
 Guard against a missed copy with a test, so CI fails until the command has run:
