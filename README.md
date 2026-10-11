@@ -195,6 +195,20 @@ r.Use(ginhelpers.Configure(ginhelpers.Options{
 
 `util/ginhelpers/csrf` checks the session's CSRF token in the `X-CSRFToken` header or the `header_csrf` form field.
 
+### Sessions
+
+`sessions/pgstore` stores [gin sessions](https://github.com/gin-contrib/sessions) in PostgreSQL. It reads the rows and cookies of [antonlindstrom/pgstore](https://github.com/antonlindstrom/pgstore), so switching from it keeps everyone logged in.
+
+```go
+// in a migration: pgstore.Schema (the http_sessions table and its indexes)
+store := pgstore.New(db, []byte(cfg.SessionSalt.Reveal()))
+go store.Cleanup(ctx, pgstore.DefaultCleanupInterval, logger) // deletes expired rows until ctx is done
+r.Use(ginsessions.Sessions("session", store))
+
+// at login and logout, against session fixation:
+if err := pgstore.Regenerate(c.Request.Context(), ginsessions.Default(c)); err != nil { ... }
+```
+
 ### Testcontainers
 
 The `testcontainers/postgres` package gives each integration test a real, migrated, empty PostgreSQL database of its own, using [testcontainers-go](https://golang.testcontainers.org/).

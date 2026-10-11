@@ -49,6 +49,23 @@ Errors services return and transports map: `ErrNotFound`, `ErrForbidden`, `ErrNe
 `Sender.Send(ctx, mail)`; console (`NewSender(logger)`, logs the mail) and Mailjet senders. Mailjet's `config.Config.BaseURL` points it at a mock
 (tommy). No database: queueing mail is the application's job.
 
+### `sessions/pgstore/`
+gin sessions (gin-contrib/sessions on gorilla/sessions) stored in PostgreSQL. Reads and writes the rows and
+cookies of `antonlindstrom/pgstore`, so an app can switch without logging anyone out.
+
+**Key API:**
+- `New(db *sql.DB, keyPairs ...[]byte) *Store` - path `/`, `DefaultMaxAge` (30 days); a `gorilla` and a
+  `gin-contrib` `sessions.Store`; `Options`, `MaxAge`, `MaxLength`
+- `Schema` - the `http_sessions` DDL (pgstore's, with `IF NOT EXISTS`): the app puts it into its own
+  migration; the store never creates its table
+- `Regenerate(ctx, ginsessions.Session)` - deletes the old row and clears the session, so the next `Save` uses a
+  fresh ID and cookie (login and logout, against session fixation)
+- `DeleteExpired(ctx)`, `Cleanup(ctx, interval, logger)` - the app starts `Cleanup` itself (blocking, until
+  ctx is done)
+
+A bad or tampered cookie and a missing or expired row give a new empty session, not an error. A row expires
+MaxAge seconds after its last save; with MaxAge 0 (a browser-session cookie), after `DefaultMaxAge`.
+
 ### `util/`
 `ginhelpers` (`Status`, `HTML`, `HTMLError`, `API`, configured per router with `Configure(Options)`),
 `ginhelpers/csrf`, `transact`, `lorem`, `logging`. No globals: configuration is passed in, never read from
@@ -103,3 +120,4 @@ make fix    # Run go fix and go mod tidy
 - `github.com/testcontainers/testcontainers-go` - Docker test containers
 - `github.com/rubenv/sql-migrate` - Database migrations
 - `go.uber.org/zap` - Logging
+- `github.com/gorilla/sessions`, `github.com/gorilla/securecookie`, `github.com/gin-contrib/sessions` - session store
