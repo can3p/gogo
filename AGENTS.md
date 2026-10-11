@@ -56,15 +56,20 @@ cookies of `antonlindstrom/pgstore`, so an app can switch without logging anyone
 **Key API:**
 - `New(db *sql.DB, keyPairs ...[]byte) *Store` - path `/`, `DefaultMaxAge` (30 days); a `gorilla` and a
   `gin-contrib` `sessions.Store`; `Options`, `MaxAge`, `MaxLength`
-- `Schema` - the `http_sessions` DDL (pgstore's, with `IF NOT EXISTS`): the app puts it into its own
-  migration; the store never creates its table
+- `Migrations` (embed.FS), `InstallMigrations(dir)`, `CheckMigrations(dir)`, and the command
+  `cmd/pgstore-migrations [-dir migrations] [-check]` - the table is a sql-migrate migration in
+  `migrations/`, which an app copies into its own migrations directory and runs with the rest. The store
+  never creates its table. A migration file is never edited once released: a schema change is a new dated
+  file, so a copy stays byte-identical and `CheckMigrations` can compare it. The tests run the shipped
+  directory.
 - `Regenerate(ctx, ginsessions.Session)` - deletes the old row and clears the session, so the next `Save` uses a
   fresh ID and cookie (login and logout, against session fixation)
 - `DeleteExpired(ctx)`, `Cleanup(ctx, interval, logger)` - the app starts `Cleanup` itself (blocking, until
   ctx is done)
 
 A bad or tampered cookie and a missing or expired row give a new empty session, not an error. A row expires
-MaxAge seconds after its last save; with MaxAge 0 (a browser-session cookie), after `DefaultMaxAge`.
+MaxAge seconds after its last save; with MaxAge 0 (a browser-session cookie), after `DefaultMaxAge`. Why it
+replaces antonlindstrom/pgstore and how it differs: README, "Sessions".
 
 ### `util/`
 `ginhelpers` (`Status`, `HTML`, `HTMLError`, `API`, configured per router with `Configure(Options)`),

@@ -6,9 +6,12 @@
 // holds the session ID encoded with securecookie, and the http_sessions row
 // holds the session values encoded with the same codecs.
 //
-// The store never creates its table: an application puts Schema into one of
-// its own migrations. Expired rows are not read, but they are only deleted by
-// DeleteExpired or Cleanup, which the application starts itself.
+// The store never creates its table. Its migrations ship with the package, in
+// sql-migrate format (Migrations), and an application copies them into its own
+// migrations directory with InstallMigrations or the pgstore-migrations
+// command, then runs them with the rest. Expired rows are not read, but they
+// are only deleted by DeleteExpired or Cleanup, which the application starts
+// itself.
 package pgstore
 
 import (
@@ -25,20 +28,6 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 )
-
-// Schema is the table and indexes the store needs, for an application's
-// migration. It is antonlindstrom/pgstore's DDL, so it is a no-op where
-// pgstore already created them.
-const Schema = `CREATE TABLE IF NOT EXISTS http_sessions (
-    id BIGSERIAL PRIMARY KEY,
-    key BYTEA,
-    data BYTEA,
-    created_on TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    modified_on TIMESTAMPTZ,
-    expires_on TIMESTAMPTZ);
-CREATE INDEX IF NOT EXISTS http_sessions_expiry_idx ON http_sessions (expires_on);
-CREATE INDEX IF NOT EXISTS http_sessions_key_idx ON http_sessions (key);
-`
 
 // DefaultMaxAge is the session lifetime of a new Store, in seconds (30 days).
 const DefaultMaxAge = 86400 * 30

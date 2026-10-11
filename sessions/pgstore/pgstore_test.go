@@ -31,7 +31,9 @@ const (
 	fixtureData   = "MTc5MTcyMzA2N3xEWDhFQVFMX2dBQUJFQUVRQUFCU180QUFBZ1p6ZEhKcGJtY01EQUFLWTNOeVpsOTBiMnRsYmdaemRISnBibWNNQ3dBSmRHOXJaVzR0TkRVMkJuTjBjbWx1Wnd3SkFBZDFjMlZ5WDJsa0JuTjBjbWx1Wnd3S0FBaDFjMlZ5TFRFeU13PT18kMDdwYvJQ7rI0ZO8t2rLm15LPgoghh03cJEwgzfTSMc="
 )
 
-const migrations = "testdata/migrations"
+// migrations is the directory the package ships, so the tests run the
+// migration applications install.
+const migrations = "migrations"
 
 func TestMain(m *testing.M) {
 	code := m.Run()
@@ -76,14 +78,6 @@ func insertRow(t *testing.T, db *sql.DB, key, data string, expiresOn time.Time) 
 		"INSERT INTO http_sessions (key, data, created_on, modified_on, expires_on) VALUES ($1, $2, now(), now(), $3)",
 		[]byte(key), []byte(data), expiresOn)
 	require.NoError(t, err)
-}
-
-func TestSchemaIsTheTestMigration(t *testing.T) {
-	t.Parallel()
-
-	migration, err := os.ReadFile(migrations + "/0001-http-sessions.sql")
-	require.NoError(t, err)
-	require.Contains(t, string(migration), pgstore.Schema, "the test schema must be the exported one")
 }
 
 func TestReadsPgstoreSessions(t *testing.T) {
