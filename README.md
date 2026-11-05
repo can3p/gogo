@@ -180,7 +180,7 @@ if _, err := settings.Parse(p, os.Args[1:]); err != nil {
 
 ### Mail
 
-`sender.Sender` delivers a `sender.Mail`. The Mailjet sender takes a `sender/mailjet/config.Config`; its `BaseURL` (`--mj.api-base`, `MJ_API_BASE` in the group above) points it at a Mailjet mock such as [tommy](https://github.com/can3p/tommy) in development and tests. Queueing mail in the database, so it is sent only if a transaction commits, is the application's job.
+`sender.Sender` delivers a `sender.Mail`. The Mailjet sender takes a `sender/mailjet/config.Config`; its `BaseURL` (`--mj.api-base`, `MJ_API_BASE` in the group above) points it at a Mailjet mock such as [tommy](https://github.com/can3p/tommy) in development and tests. `Mail.Headers` carries extra headers, such as the RFC 8058 `List-Unsubscribe` and `List-Unsubscribe-Post`; `From`, `To`, `Cc`, `Bcc` and `Subject` stay in their own fields. Queueing mail in the database, so it is sent only if a transaction commits, is the application's job.
 
 ### Pages and errors
 

@@ -34,6 +34,7 @@ func (m *consoleSender) Send(ctx context.Context, mail *sender.Mail) error {
 		zap.Strings("cc", addresses(mail.Cc)),
 		zap.Strings("bcc", addresses(mail.Bcc)),
 		zap.String("subject", mail.Subject),
+		zap.Any("headers", mail.Headers),
 		zap.String("text", mail.Text),
 		zap.String("html", mail.Html),
 	)

@@ -20,4 +20,9 @@ type Mail struct {
 	Subject string
 	Text    string
 	Html    string
+
+	// Headers holds extra headers only, such as List-Unsubscribe and
+	// List-Unsubscribe-Post (RFC 8058). From, To, Cc, Bcc and Subject stay in
+	// their own fields and must not be set here.
+	Headers map[string]string `json:",omitempty"`
 }
