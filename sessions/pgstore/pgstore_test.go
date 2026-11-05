@@ -43,7 +43,7 @@ func TestMain(m *testing.M) {
 
 func newDB(t *testing.T) *sql.DB {
 	t.Helper()
-	return postgres.New(t, postgres.WithMigrationsDir(migrations)).SQL
+	return postgres.New(t, postgres.WithMigrationsDir(migrations)).DB
 }
 
 func newStore(t *testing.T) (*pgstore.Store, *sql.DB) {

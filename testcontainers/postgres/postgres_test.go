@@ -126,7 +126,7 @@ func TestDatabasesAreIsolated(t *testing.T) {
 			var names []string
 			rows, err := db.DB.Query("SELECT name FROM authors")
 			require.NoError(t, err)
-			defer rows.Close()
+			defer func() { _ = rows.Close() }()
 			for rows.Next() {
 				var n string
 				require.NoError(t, rows.Scan(&n))

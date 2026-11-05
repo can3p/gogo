@@ -123,7 +123,7 @@ func TestCheckMigrationsNamesTheMissingOnes(t *testing.T) {
 func TestInstalledMigrationsRunAfterTheAppsMigrations(t *testing.T) {
 	t.Parallel()
 
-	db := postgres.New(t, postgres.WithMigrationsDir("testdata/app")).SQL
+	db := postgres.New(t, postgres.WithMigrationsDir("testdata/app")).DB
 
 	dir := t.TempDir()
 	app, err := os.ReadFile("testdata/app/29990101000000-app-things.sql")
