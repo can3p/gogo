@@ -274,7 +274,7 @@ func TestSomething(t *testing.T) {
 
     db := postgres.New(t, postgres.WithMigrationsDir("../../migrations"))
 
-    // db.DB is a *sqlx.DB, db.SQL a *sql.DB, db.URL the connection string.
+    // db.DB is a *sql.DB, db.URL the connection string.
     // The database is dropped when the test ends.
 }
 ```

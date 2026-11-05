@@ -17,7 +17,7 @@ PostgreSQL databases for integration tests, on testcontainers-go.
 **Key API:**
 - `New(t testing.TB, opts ...Option) *TestDB` - migrated, empty database per test; dropped via `t.Cleanup`
 - Options: `WithMigrationsDir` (required), `WithMigrationsTable` (default `"migrations"`), `WithImage` (default `postgres:16-alpine`), `WithLogger` (default logs to `t.Log`)
-- `TestDB` - `DB *sqlx.DB`, `SQL *sql.DB`, `URL string`
+- `TestDB` - `DB *sql.DB`, `URL string` (`SQL` is a deprecated alias of `DB`)
 - `Cleanup()` - terminates the shared container (call in `TestMain`)
 - Deprecated: `NewTestDB(Options)`, `Options`, `ConnectionInfo`, `TestDB.ConnInfo`
 
@@ -122,7 +122,6 @@ make fix    # Run go fix and go mod tidy
 ## Dependencies
 
 - `github.com/gin-gonic/gin` - Web framework
-- `github.com/jmoiron/sqlx` - SQL extensions
 - `github.com/jessevdk/go-flags` - settings
 - `github.com/testcontainers/testcontainers-go` - Docker test containers
 - `github.com/rubenv/sql-migrate` - Database migrations

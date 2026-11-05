@@ -1,13 +1,9 @@
 package transact
 
-import (
-	"database/sql"
-
-	"github.com/jmoiron/sqlx"
-)
+import "database/sql"
 
 // https://stackoverflow.com/questions/16184238/database-sql-tx-detecting-commit-or-rollback
-func Transact(db *sqlx.DB, txFunc func(*sql.Tx) error) (err error) {
+func Transact(db *sql.DB, txFunc func(*sql.Tx) error) (err error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return
