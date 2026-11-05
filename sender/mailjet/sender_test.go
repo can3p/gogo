@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/mail"
 	"testing"
+	"time"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/mailjet"
@@ -68,4 +69,45 @@ func TestSend_ErrorStatus(t *testing.T) {
 	err := snd.Send(context.Background(), &sender.Mail{To: []mail.Address{{Address: "to@example.com"}}})
 
 	require.Error(t, err)
+}
+
+// hangingServer accepts requests and never answers until the test ends.
+func hangingServer(t *testing.T) *httptest.Server {
+	release := make(chan struct{})
+	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(func() {
+		close(release)
+		mock.Close()
+	})
+	return mock
+}
+
+func TestSend_ContextDeadline(t *testing.T) {
+	mock := hangingServer(t)
+	snd := mailjet.NewSenderFromConfig(&config.Config{ApiKeyPublic: "p", ApiKeyPrivate: "s", BaseURL: mock.URL, Timeout: time.Minute})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err := snd.Send(ctx, &sender.Mail{To: []mail.Address{{Address: "to@example.com"}}})
+
+	require.Error(t, err)
+	require.Less(t, time.Since(start), 5*time.Second)
+}
+
+func TestSend_ClientTimeout(t *testing.T) {
+	mock := hangingServer(t)
+	snd := mailjet.NewSenderFromConfig(&config.Config{ApiKeyPublic: "p", ApiKeyPrivate: "s", BaseURL: mock.URL, Timeout: 100 * time.Millisecond})
+
+	start := time.Now()
+	err := snd.Send(context.Background(), &sender.Mail{To: []mail.Address{{Address: "to@example.com"}}})
+
+	require.Error(t, err)
+	require.Less(t, time.Since(start), 5*time.Second)
 }

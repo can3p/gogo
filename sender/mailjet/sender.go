@@ -2,13 +2,18 @@ package mailjet
 
 import (
 	"context"
+	"net/http"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/can3p/gogo/sender"
 	"github.com/can3p/gogo/sender/mailjet/config"
 	mailjet "github.com/mailjet/mailjet-apiv3-go/v3"
 )
+
+// DefaultTimeout is used when the config does not set a Timeout.
+const DefaultTimeout = 30 * time.Second
 
 type mailjerSender struct {
 	client *mailjet.Client
@@ -22,6 +27,12 @@ func NewSenderFromConfig(config *config.Config) *mailjerSender {
 	}
 
 	mailjetClient := mailjet.NewMailjetClient(config.ApiKeyPublic, config.ApiKeyPrivate.Reveal(), baseURL...)
+
+	timeout := config.Timeout
+	if timeout <= 0 {
+		timeout = DefaultTimeout
+	}
+	mailjetClient.SetClient(&http.Client{Timeout: timeout})
 
 	return &mailjerSender{
 		client: mailjetClient,
@@ -63,7 +74,7 @@ func (m *mailjerSender) Send(ctx context.Context, mail *sender.Mail) error {
 	}
 
 	messages := mailjet.MessagesV31{Info: messagesInfo}
-	_, err := m.client.SendMailV31(&messages)
+	_, err := m.client.SendMailV31(&messages, mailjet.WithContext(ctx))
 
 	return err
 }
