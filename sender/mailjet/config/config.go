@@ -2,13 +2,14 @@ package config
 
 import (
 	"errors"
+	"time"
 
 	"github.com/can3p/gogo/settings"
 )
 
 // Config is the Mailjet sender's settings. Embed it as a go-flags group with
 // a namespace, `group:"Mailjet" namespace:"mj" env-namespace:"MJ"`, to read
-// MJ_APIKEY_PUBLIC, MJ_APIKEY_PRIVATE and MJ_API_BASE.
+// MJ_APIKEY_PUBLIC, MJ_APIKEY_PRIVATE, MJ_API_BASE and MJ_TIMEOUT.
 type Config struct {
 	ApiKeyPublic  string          `long:"api-key-public" env:"APIKEY_PUBLIC" description:"Mailjet API key public" required:"true"`
 	ApiKeyPrivate settings.Secret `long:"api-key-private" env:"APIKEY_PRIVATE" description:"Mailjet API key private" required:"true"`
@@ -16,6 +17,9 @@ type Config struct {
 	// as tommy (github.com/can3p/tommy), in development and tests. Empty means
 	// Mailjet's own.
 	BaseURL string `long:"api-base" env:"API_BASE" description:"Mailjet API root, such as a mock's http://localhost:8822; Mailjet's own if empty"`
+	// Timeout bounds one request to the Mailjet API. Zero means the sender's
+	// DefaultTimeout.
+	Timeout time.Duration `long:"timeout" env:"TIMEOUT" description:"How long one request to the Mailjet API may take" default:"30s"`
 }
 
 func (c *Config) Validate() error {
