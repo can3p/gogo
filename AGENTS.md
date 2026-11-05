@@ -46,7 +46,7 @@ Errors services return and transports map: `ErrNotFound`, `ErrForbidden`, `ErrNe
 `ValidationError`/`Invalid`. Imports nothing.
 
 ### `sender/`
-`Sender.Send(ctx, mail)`; console (`NewSender(logger)`, logs the mail) and Mailjet senders. Mailjet's `config.Config.BaseURL` points it at a mock
+`Sender.Send(ctx, mail)`; `Mail.Headers` holds extra headers only (e.g. List-Unsubscribe). Console (`NewSender(logger)`, logs the mail) and Mailjet senders. Mailjet's `config.Config.BaseURL` points it at a mock
 (tommy). No database: queueing mail is the application's job.
 
 ### `sessions/pgstore/`

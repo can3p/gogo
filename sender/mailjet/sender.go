@@ -57,6 +57,21 @@ func toMailjet(addrs []mail.Address) *mailjet.RecipientsV31 {
 
 }
 
+// toMailjetHeaders converts the headers to the SDK's type, and leaves them nil
+// when there are none, so the request has no Headers key.
+func toMailjetHeaders(headers map[string]string) map[string]any {
+	if len(headers) == 0 {
+		return nil
+	}
+
+	out := make(map[string]any, len(headers))
+	for k, v := range headers {
+		out[k] = v
+	}
+
+	return out
+}
+
 func (m *mailjerSender) Send(ctx context.Context, mail *sender.Mail) error {
 	messagesInfo := []mailjet.InfoMessagesV31{
 		{
@@ -70,6 +85,7 @@ func (m *mailjerSender) Send(ctx context.Context, mail *sender.Mail) error {
 			Subject:  mail.Subject,
 			TextPart: mail.Text,
 			HTMLPart: mail.Html,
+			Headers:  toMailjetHeaders(mail.Headers),
 		},
 	}
 

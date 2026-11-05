@@ -111,3 +111,84 @@ func TestSend_ClientTimeout(t *testing.T) {
 	require.Error(t, err)
 	require.Less(t, time.Since(start), 5*time.Second)
 }
+
+// captureServer is a Mailjet mock that keeps the raw messages of the last request.
+func captureServer(t *testing.T) (*httptest.Server, *[]map[string]json.RawMessage) {
+	var messages []map[string]json.RawMessage
+	mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Messages []map[string]json.RawMessage }
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		messages = body.Messages
+		_, _ = w.Write([]byte(`{"Messages":[{"Status":"success"}]}`))
+	}))
+	t.Cleanup(mock.Close)
+	return mock, &messages
+}
+
+func TestSend_Headers(t *testing.T) {
+	mock, messages := captureServer(t)
+	snd := mailjet.NewSenderFromConfig(&config.Config{ApiKeyPublic: "p", ApiKeyPrivate: "s", BaseURL: mock.URL})
+
+	headers := map[string]string{
+		"List-Unsubscribe":      "<https://example.com/subscriptions/tok/unsubscribe/1>, <https://example.com/subscriptions/tok>",
+		"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+	}
+
+	err := snd.Send(context.Background(), &sender.Mail{
+		From:    mail.Address{Address: "from@example.com"},
+		To:      []mail.Address{{Address: "to@example.com"}},
+		Subject: "Hello",
+		Headers: headers,
+	})
+	require.NoError(t, err)
+	require.Len(t, *messages, 1)
+
+	raw, ok := (*messages)[0]["Headers"]
+	require.True(t, ok, "Headers key missing")
+
+	var got map[string]string
+	require.NoError(t, json.Unmarshal(raw, &got))
+	require.Equal(t, headers, got)
+}
+
+func TestSend_NoHeaders(t *testing.T) {
+	mock, messages := captureServer(t)
+	snd := mailjet.NewSenderFromConfig(&config.Config{ApiKeyPublic: "p", ApiKeyPrivate: "s", BaseURL: mock.URL})
+
+	for _, headers := range []map[string]string{nil, {}} {
+		err := snd.Send(context.Background(), &sender.Mail{
+			From:    mail.Address{Address: "from@example.com"},
+			To:      []mail.Address{{Address: "to@example.com"}},
+			Subject: "Hello",
+			Headers: headers,
+		})
+		require.NoError(t, err)
+		require.Len(t, *messages, 1)
+		require.NotContains(t, (*messages)[0], "Headers")
+	}
+}
+
+func TestMail_JSONHeaders(t *testing.T) {
+	in := sender.Mail{
+		To:      []mail.Address{{Address: "to@example.com"}},
+		Subject: "Hello",
+		Headers: map[string]string{"List-Unsubscribe-Post": "List-Unsubscribe=One-Click"},
+	}
+
+	data, err := json.Marshal(in)
+	require.NoError(t, err)
+
+	var out sender.Mail
+	require.NoError(t, json.Unmarshal(data, &out))
+	require.Equal(t, in, out)
+
+	// A mail queued before Headers existed, or one without headers.
+	data, err = json.Marshal(sender.Mail{Subject: "Hello"})
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "Headers")
+
+	var old sender.Mail
+	require.NoError(t, json.Unmarshal([]byte(`{"From":{"Name":"","Address":"from@example.com"},"To":null,"Cc":null,"Bcc":null,"Subject":"Hello","Text":"Hi","Html":""}`), &old))
+	require.Nil(t, old.Headers)
+	require.Equal(t, "Hello", old.Subject)
+}
