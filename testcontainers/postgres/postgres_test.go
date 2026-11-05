@@ -8,7 +8,6 @@ import (
 
 	"github.com/can3p/gogo/testcontainers/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" driver
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,22 +34,21 @@ func newDB(t *testing.T, opts ...postgres.Option) *postgres.TestDB {
 	return postgres.New(t, append([]postgres.Option{postgres.WithMigrationsDir(migrationsDir)}, opts...)...)
 }
 
-func tableExists(t *testing.T, db *sqlx.DB, table string) bool {
+func tableExists(t *testing.T, db *sql.DB, table string) bool {
 	t.Helper()
 
 	var exists bool
-	require.NoError(t, db.Get(&exists,
-		"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
-		table))
+	require.NoError(t, db.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1)",
+		table).Scan(&exists))
 
 	return exists
 }
 
-func databaseExists(t *testing.T, db *sqlx.DB, name string) bool {
+func databaseExists(t *testing.T, db *sql.DB, name string) bool {
 	t.Helper()
 
 	var exists bool
-	require.NoError(t, db.Get(&exists, "SELECT EXISTS (SELECT FROM pg_database WHERE datname = $1)", name))
+	require.NoError(t, db.QueryRow("SELECT EXISTS (SELECT FROM pg_database WHERE datname = $1)", name).Scan(&exists))
 
 	return exists
 }
@@ -59,7 +57,7 @@ func TestNewGivesAWorkingDatabase(t *testing.T) {
 	db := newDB(t)
 
 	var one int
-	require.NoError(t, db.DB.Get(&one, "SELECT 1"))
+	require.NoError(t, db.DB.QueryRow("SELECT 1").Scan(&one))
 	assert.Equal(t, 1, one)
 
 	require.NoError(t, db.SQL.QueryRow("SELECT 1").Scan(&one))
@@ -74,7 +72,7 @@ func TestMigrationsAreRecordedInTheConfiguredTable(t *testing.T) {
 		db := newDB(t)
 
 		var applied int
-		require.NoError(t, db.DB.Get(&applied, "SELECT count(*) FROM "+postgres.DefaultMigrationsTable))
+		require.NoError(t, db.DB.QueryRow("SELECT count(*) FROM "+postgres.DefaultMigrationsTable).Scan(&applied))
 		assert.Equal(t, 2, applied)
 		assert.False(t, tableExists(t, db.DB, "gorp_migrations"))
 	})
@@ -83,7 +81,7 @@ func TestMigrationsAreRecordedInTheConfiguredTable(t *testing.T) {
 		db := newDB(t, postgres.WithMigrationsTable("schema_history"))
 
 		var applied int
-		require.NoError(t, db.DB.Get(&applied, "SELECT count(*) FROM schema_history"))
+		require.NoError(t, db.DB.QueryRow("SELECT count(*) FROM schema_history").Scan(&applied))
 		assert.Equal(t, 2, applied)
 		assert.False(t, tableExists(t, db.DB, postgres.DefaultMigrationsTable))
 		assert.False(t, tableExists(t, db.DB, "gorp_migrations"))
@@ -98,7 +96,7 @@ func TestDatabaseStartsMigratedAndEmpty(t *testing.T) {
 
 			for _, table := range migratedTables {
 				var count int
-				require.NoError(t, db.DB.Get(&count, "SELECT count(*) FROM "+table),
+				require.NoError(t, db.DB.QueryRow("SELECT count(*) FROM "+table).Scan(&count),
 					"table %s should exist in a migrated database", table)
 				require.Zero(t, count, "table %s should start empty", table)
 			}
@@ -126,7 +124,15 @@ func TestDatabasesAreIsolated(t *testing.T) {
 			require.NoError(t, err)
 
 			var names []string
-			require.NoError(t, db.DB.Select(&names, "SELECT name FROM authors"))
+			rows, err := db.DB.Query("SELECT name FROM authors")
+			require.NoError(t, err)
+			defer rows.Close()
+			for rows.Next() {
+				var n string
+				require.NoError(t, rows.Scan(&n))
+				names = append(names, n)
+			}
+			require.NoError(t, rows.Err())
 			require.Equal(t, []string{name}, names, "only this test's row should be visible")
 		})
 	}
@@ -167,12 +173,12 @@ func TestURLOpensWithEitherDriver(t *testing.T) {
 
 	for _, driver := range []string{"postgres", "pgx"} {
 		t.Run(driver, func(t *testing.T) {
-			conn, err := sqlx.Open(driver, db.URL)
+			conn, err := sql.Open(driver, db.URL)
 			require.NoError(t, err)
 			defer func() { _ = conn.Close() }()
 
 			var count int
-			require.NoError(t, conn.Get(&count, "SELECT count(*) FROM authors WHERE name = $1", "nobody"))
+			require.NoError(t, conn.QueryRow("SELECT count(*) FROM authors WHERE name = $1", "nobody").Scan(&count))
 			assert.Zero(t, count)
 		})
 	}
@@ -185,7 +191,7 @@ func TestDeprecatedAPI(t *testing.T) {
 		defer func() { _ = testDB.Close() }()
 
 		var one int
-		require.NoError(t, testDB.DB.Get(&one, "SELECT 1"))
+		require.NoError(t, testDB.DB.QueryRow("SELECT 1").Scan(&one))
 		assert.Equal(t, 1, one)
 		assert.False(t, tableExists(t, testDB.DB, "authors"))
 	})
@@ -229,7 +235,7 @@ func TestDeprecatedAPI(t *testing.T) {
 		assert.Equal(t, "disable", info.SSLMode)
 		assert.Equal(t, testDB.URL, info.ConnectionString())
 
-		conn, err := sqlx.Open("postgres", info.ConnectionString())
+		conn, err := sql.Open("postgres", info.ConnectionString())
 		require.NoError(t, err)
 		require.NoError(t, conn.Ping())
 		require.NoError(t, conn.Close())

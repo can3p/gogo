@@ -27,11 +27,11 @@
 //
 //		db := postgres.New(t, postgres.WithMigrationsDir("../../migrations"))
 //
-//		// db.DB is a *sqlx.DB and db.SQL a *sql.DB on an empty, fully
-//		// migrated database. db.URL is its connection string, for handing
-//		// to a subprocess or to a different driver.
+//		// db.DB is a *sql.DB on an empty, fully migrated database.
+//		// db.URL is its connection string, for handing to a subprocess or
+//		// to a different driver.
 //		var n int
-//		if err := db.DB.Get(&n, "SELECT count(*) FROM users"); err != nil {
+//		if err := db.DB.QueryRow("SELECT count(*) FROM users").Scan(&n); err != nil {
 //			t.Fatal(err)
 //		}
 //	}
@@ -74,7 +74,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq" // database/sql driver, registered as "postgres"
 	migrate "github.com/rubenv/sql-migrate"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -152,9 +151,11 @@ func WithLogger(logger *zap.Logger) Option {
 // TestDB is one test's own database.
 type TestDB struct {
 	// DB is connected to the test's database.
-	DB *sqlx.DB
+	DB *sql.DB
 
-	// SQL is the *sql.DB underlying DB, for code that does not use sqlx.
+	// SQL is the same *sql.DB as DB.
+	//
+	// Deprecated: use DB.
 	SQL *sql.DB
 
 	// URL is the connection string of the database, for handing it to a
@@ -335,7 +336,7 @@ func newTestDB(cfg config) (*TestDB, error) {
 	}
 
 	dbURL := inst.url(name)
-	db, err := sqlx.Open(driverName, dbURL)
+	db, err := sql.Open(driverName, dbURL)
 	if err != nil {
 		_, _ = inst.admin.Exec("DROP DATABASE IF EXISTS " + pq.QuoteIdentifier(name))
 		return nil, fmt.Errorf("connecting to database %s: %w", name, err)
@@ -343,7 +344,7 @@ func newTestDB(cfg config) (*TestDB, error) {
 
 	return &TestDB{
 		DB:  db,
-		SQL: db.DB,
+		SQL: db,
 		URL: dbURL,
 		ConnInfo: ConnectionInfo{
 			Host:     inst.host,

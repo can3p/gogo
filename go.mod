@@ -9,7 +9,6 @@ require (
 	github.com/gorilla/sessions v1.4.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/jessevdk/go-flags v1.6.1
-	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.12.3
 	github.com/mailjet/mailjet-apiv3-go/v3 v3.2.0
 	github.com/pkg/errors v0.9.1
